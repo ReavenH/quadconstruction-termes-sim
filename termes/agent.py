@@ -62,6 +62,8 @@ class Agent:
         self.trip_cnt=0
         self.trip_cnt_wasted=0
         self.trip_cnt_productive=0
+
+        self.cnt_wait = 0
         
         self.max_set=None     #Set this when initializing elements
         self.max_visited=set()#Set this 
@@ -200,7 +202,7 @@ class Agent:
     def pick_actions(self,observation, mode = '0', debug_print=False, agents = None):
             #check building
             #do_motion
-        self.my_time += 1
+        
             
         # deal with congestion waiting.
         if agents != None and self.my_time > 0:
@@ -229,9 +231,11 @@ class Agent:
                     '''
                     if (self.pose.x + dxdy[0][0] == a.pose.x and self.pose.y + dxdy[0][1] == a.pose.y):
                         print(f'Agent {self.ID} at {self.pose} is waiting for Agent {a.ID} at {a.pose}.')
+                        if self.my_time > 0: self.cnt_wait += 1
                         return ''
                     
-            
+        self.my_time += 1
+
         if (observation.heights[0] == 0) and not self.on_structure and mode == '0':
             '''
             Behavior on Ground

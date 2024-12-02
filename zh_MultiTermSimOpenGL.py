@@ -41,6 +41,11 @@ Assumptions: robot does not break; locomotion is at a constant speed; extra time
             row headers: tilt angles, 0, 5, 10, 15, 20
             column headers: distribution set A (better than usual); distribution B (usual performance); distribution set C (worse than usual).
             each entry: mean and standard deviation of the number of first insecure block. Repeat 10 times for each entry.
+        implementation:
+            - generate angular and axial placement error;
+            - match the current block to the lower layer blocks;
+            - calculate the overlap area;
+            - detect number of T-pins crossing two layers.
 
 '''
 
@@ -61,7 +66,7 @@ from pygame.locals import *
 from OpenGL.GL import *
 from OpenGL.GLU import *
 useOpenGL = True
-numAgents = 3
+numAgents = 10
 myBrickMap = brickMap(hmRPYG, None)
 # init a list of robot instances.
 myRobots = [robot(hmRPYG, None, poseTags, None) for i in range(numAgents)]
@@ -280,23 +285,28 @@ if __name__ == '__main__':
                 for i, a in enumerate(wrld.agents):
                     timeStep = a.my_time
                     timeStepSum += timeStep
-                    textToShow += "Agent "+str(i)+": "+str(timeStep)+" | "
-                textToShow += "Total :"+str(timeStepSum)+" | "
+                    textToShow += "#"+str(i)+":"+str(timeStep)+" | "
+                textToShow += "Total:"+str(timeStepSum)+" | "
                 renderTextOG(textToShow, (10, 20))
+                textToShow = "Wait Steps - "
+                for i, a in enumerate(wrld.agents):
+                    waitStep = a.cnt_wait
+                    textToShow += "#"+str(i)+":"+str(waitStep)+" | "
+                renderTextOG(textToShow, (10, 40))
                 textToShow = "Productive Travels - "
                 for i, a in enumerate(wrld.agents):
                     productiveTravels = a.trip_cnt_productive
-                    textToShow += "Agent "+str(i)+": "+str(productiveTravels)+" | "
-                renderTextOG(textToShow, (10, 40))
+                    textToShow += "#"+str(i)+":"+str(productiveTravels)+" | "
+                renderTextOG(textToShow, (10, 60))
                 textToShow = "Wasted Travels - "
                 for i, a in enumerate(wrld.agents):
                     uselessTravels = a.trip_cnt_wasted
-                    textToShow += "Agent "+str(i)+": "+str(uselessTravels)+" | "
-                renderTextOG(textToShow, (10, 60))
-                textToShow = "No. Blocks: " + str(s_size)
+                    textToShow += "#"+str(i)+":"+str(uselessTravels)+" | "
                 renderTextOG(textToShow, (10, 80))
-                textToShow = "No. Gridcells TBD: "+str(numTotalCellsTBD - np.sum(wrld.struct.worldArray))
+                textToShow = "No. Blocks: " + str(s_size)
                 renderTextOG(textToShow, (10, 100))
+                textToShow = "No. Gridcells TBD: "+str(numTotalCellsTBD - np.sum(wrld.struct.worldArray))
+                renderTextOG(textToShow, (10, 120))
                 pygame.display.flip()
                 pygame.time.wait(4)  # default 5
             # --------------------------------------------------
