@@ -275,15 +275,28 @@ if __name__ == '__main__':
                     drawRigidBodyOG(hmRPYG(*pose[:3], pose[3:]).dot(myBrickMap.brickVertices))
                     drawBrickOG(pose, myBrickMap.brickVertices)
                 # draw text.
+                textToShow = "Time Step - "
+                timeStepSum = 0
+                for i, a in enumerate(wrld.agents):
+                    timeStep = a.my_time
+                    timeStepSum += timeStep
+                    textToShow += "Agent "+str(i)+": "+str(timeStep)+" | "
+                textToShow += "Total :"+str(timeStepSum)+" | "
+                renderTextOG(textToShow, (10, 20))
+                textToShow = "Productive Travels - "
+                for i, a in enumerate(wrld.agents):
+                    productiveTravels = a.trip_cnt_productive
+                    textToShow += "Agent "+str(i)+": "+str(productiveTravels)+" | "
+                renderTextOG(textToShow, (10, 40))
                 textToShow = "Wasted Travels - "
                 for i, a in enumerate(wrld.agents):
                     uselessTravels = a.trip_cnt_wasted
                     textToShow += "Agent "+str(i)+": "+str(uselessTravels)+" | "
-                renderTextOG(textToShow, (10, 20))
-                textToShow = "No. Blocks: " + str(s_size)
-                renderTextOG(textToShow, (10, 40))
-                textToShow = "No. Gridcells TBD: "+str(numTotalCellsTBD - np.sum(wrld.struct.worldArray))
                 renderTextOG(textToShow, (10, 60))
+                textToShow = "No. Blocks: " + str(s_size)
+                renderTextOG(textToShow, (10, 80))
+                textToShow = "No. Gridcells TBD: "+str(numTotalCellsTBD - np.sum(wrld.struct.worldArray))
+                renderTextOG(textToShow, (10, 100))
                 pygame.display.flip()
                 pygame.time.wait(4)  # default 5
             # --------------------------------------------------

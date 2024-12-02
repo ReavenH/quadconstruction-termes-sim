@@ -349,7 +349,7 @@ class World:
         # added by Z. Huang, to clear the terminal.
         os.system('cls')
 
-        print(sum(a.my_time for a in self.agents))
+        print("Time Step: ", sum(a.my_time for a in self.agents))
         for c_row in chars:
             print(''.join(c_row))
 

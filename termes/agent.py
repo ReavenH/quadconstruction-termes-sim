@@ -208,19 +208,29 @@ class Agent:
             #This could be nicer  
             dxdy=None
             if self.pose.heading.value == heading.NORTH.value:
-                dxdy=((0,1),(1,0),(0,-1),(-1,0))  # order: N, E, S, W in the coordinate frame of robot.
+                dxdy=((0,1),(1,0),(0,-1),(-1,0),(-1, 1), (1, 1))  # order: N, E, S, W, NW, NE in the coordinate frame of robot.
             elif self.pose.heading.value == heading.EAST.value:
-                dxdy=((1,0),(0,-1),(-1,0),(0,1))  # order: N, E, S, W in the coordinate frame of robot.
+                dxdy=((1,0),(0,-1),(-1,0),(0,1),(1, 1), (1, -1))  # order: N, E, S, W, NW, NE in the coordinate frame of robot.
             elif self.pose.heading.value == heading.SOUTH.value:
-                dxdy=((0,-1),(-1,0),(0,1),(1,0))  # order: N, E, S, W in the coordinate frame of robot.
+                dxdy=((0,-1),(-1,0),(0,1),(1,0),(1, -1), (-1, -1))  # order: N, E, S, W, NW, NE in the coordinate frame of robot.
             elif self.pose.heading.value == heading.WEST.value:
-                dxdy=((-1,0),(0,1),(1,0),(0,-1))  # order: N, E, S, W in the coordinate frame of robot.
+                dxdy=((-1,0),(0,1),(1,0),(0,-1),(-1, -1), (-1, 1))  # order: N, E, S, W, NW, NE in the coordinate frame of robot.
 
             for a in agents:
                 if a.ID != self.ID:
-                    if self.pose.x + dxdy[0][0] == a.pose.x and self.pose.y + dxdy[0][1] == a.pose.y:
+                    '''
+                    # not in use because the robots are moved sequentially, 
+                    # so no collision in simulation for robots coming from perpendicular directions.
+                    if (self.pose.x + dxdy[0][0] == a.pose.x and self.pose.y + dxdy[0][1] == a.pose.y) or \
+                        (self.pose.x + dxdy[-1][0] == a.pose.x and self.pose.y + dxdy[-1][1] == a.pose.y) or \
+                        (self.pose.x + dxdy[-2][0] == a.pose.x and self.pose.y + dxdy[-2][1] == a.pose.y): # they are the grid at the front, the NE and NW grid, respectively.
                         print(f'Agent {self.ID} at {self.pose} is waiting for Agent {a.ID} at {a.pose}.')
                         return ''
+                    '''
+                    if (self.pose.x + dxdy[0][0] == a.pose.x and self.pose.y + dxdy[0][1] == a.pose.y):
+                        print(f'Agent {self.ID} at {self.pose} is waiting for Agent {a.ID} at {a.pose}.')
+                        return ''
+                    
             
         if (observation.heights[0] == 0) and not self.on_structure and mode == '0':
             '''
