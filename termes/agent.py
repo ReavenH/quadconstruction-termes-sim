@@ -64,6 +64,7 @@ class Agent:
         self.trip_cnt_productive=0
 
         self.cnt_wait = 0
+        self.setOut = False
         
         self.max_set=None     #Set this when initializing elements
         self.max_visited=set()#Set this 
@@ -231,7 +232,7 @@ class Agent:
                     '''
                     if (self.pose.x + dxdy[0][0] == a.pose.x and self.pose.y + dxdy[0][1] == a.pose.y):
                         print(f'Agent {self.ID} at {self.pose} is waiting for Agent {a.ID} at {a.pose}.')
-                        if self.my_time > 0: self.cnt_wait += 1
+                        if self.setOut: self.cnt_wait += 1
                         return ''
                     
         self.my_time += 1
@@ -448,7 +449,9 @@ class Agent:
             if debug_print:
                 print(f'Chosing {ch}')
           
-            
+            # toggle the state saying if it has set out from the start location.
+            if self.setOut == False:
+                self.setOut = True
             #should have at most one turn
             return a + b +'f'
             

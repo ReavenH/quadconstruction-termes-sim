@@ -27,7 +27,7 @@ Types of the structure: A) I and L walls; B) X walls; C) C walls, J walls, V wal
 Assumptions: robot does not break; locomotion is at a constant speed; extra time for climbing is ignored; blocks are placed right beneath the robot; 
             blocks don't span different layers when placement error occurs (assuming only augular and axial errors, as lateral error is caused by angular errors due to the gripper mechanism);
             T-pins mechanism doe not fail.
-1. For each type of structure, explore the building time (steps) v.s. number of agents (1~10). Maybe affected by the congestion and number of crosses, otherwise it should be linear.
+1. For each type of structure, explore the building time (steps) and wait steps v.s. number of agents (1~10). Maybe affected by the congestion and number of crosses, otherwise it should be linear.
     prerequisites: detect congestion from the NW and NE directions of each agent.
 2. [UNDECIDED] For X-shapes (with crosses), explore the 
 3. For I and C walls (tilt from 0 to 20 degrees), given a fixed plan graph, explore how placement errors influence the structural stability.
@@ -60,7 +60,7 @@ import copy
 # for openGL visualization ----------------------
 import sys
 sys.path.append(r'F:\\Hiwonder_SharedFiles\\robot_localization')
-from zh_Utilities import brickMap, hmRPYG, hmRPYP, drawFloor, keyboardCtrl, robot, R, np, poseTags, drawRigidBodyOG, drawBrickOG, renderTextOG, placeTiltBlock
+from zh_Utilities import brickMap, hmRPYG, hmRPYP, drawFloor, keyboardCtrl, robot, R, np, poseTags, drawRigidBodyOG, drawBrickOG, renderTextOG, placeTiltBlock, blockQuery, isTPinSecure
 import pygame
 from pygame.locals import *
 from OpenGL.GL import *
@@ -84,6 +84,22 @@ s_size=0
 
 mode = 'custom10'  # choose between 'default' and 'custom' to select input files.
 isCurve = False  # identify whether the structure is curved.
+
+# for error simulation -----------------------------------------
+axialErrorMean = 0.0  # in meters, default 12.2/1000m.
+axialErrorStd = 10.04 / 1000 # in meters, default 10.04/1000m in the previous paper.
+axEGen = np.random.normal  # random error generator.
+angularErrorMean = 0.0 # in degrees, default 2.86.
+angularErrorStd = 3.07 # in degrees, default 3.07.
+agEGen = np.random.normal  # random error generator.
+
+logTPinsSecured = []
+logAreaOverlapPercentage = []
+
+pinDX = 0.15  # dx and dy of T-pins in the coordinate of block center.
+pinDY = 0.075
+from shapely.geometry import Polygon
+# --------------------------------------------------------------
 
 if __name__ == '__main__':
     
@@ -360,12 +376,12 @@ if __name__ == '__main__':
                                             if (a.plan_graph.edges[(parentLoc, currentLoc)]['tilt'] != a.plan_graph.edges[(currentLoc, childLoc)]['tilt']):
                                                 tilt = (a.plan_graph.edges[(currentLoc, childLoc)]['tilt'] + a.plan_graph.edges[(pparentLoc, parentLoc)]['tilt']) / 2
                                             '''
-                                            blockPose = placeTiltBlock(1, tilt, parentBlockPose)
+                                            blockPose = placeTiltBlock(1, tilt, parentBlockPose, axE = axEGen(loc = axialErrorMean, scale = axialErrorStd), agE = agEGen(loc = angularErrorMean, scale = angularErrorStd))
                                             
                                         else:
-                                            blockPose = placeTiltBlock(1, a.plan_graph.edges[(parentLoc, (a.pose.x, a.pose.y))]['tilt'], parentBlockPose)
+                                            blockPose = placeTiltBlock(1, a.plan_graph.edges[(parentLoc, (a.pose.x, a.pose.y))]['tilt'], parentBlockPose, axE = axEGen(loc = axialErrorMean, scale = axialErrorStd), agE = agEGen(loc = angularErrorMean, scale = angularErrorStd))
                                     elif parentLocHeight == wrld.struct[a.pose] - 1:
-                                        blockPose = placeTiltBlock(0, a.plan_graph.edges[(parentLoc, (a.pose.x, a.pose.y))]['tilt'] / 2, parentBlockPose)
+                                        blockPose = placeTiltBlock(0, a.plan_graph.edges[(parentLoc, (a.pose.x, a.pose.y))]['tilt'] / 2, parentBlockPose, axE = axEGen(loc = axialErrorMean, scale = axialErrorStd), agE = agEGen(loc = angularErrorMean, scale = angularErrorStd))
                             else:  # at the start location.
                                 assert len(parentLoc) == 0, "ERROR: Robot Attemps to place at the start location"
                                 blockPose = placeTiltBlock(0, -5, myBrickMap.map[0])
@@ -379,6 +395,35 @@ if __name__ == '__main__':
                                     cellPose = hmRPYG(*blockPose[:3], blockPose[3:]).dot(np.array([trans[0], trans[1], 0, 1]))[:3]
                                     dxdy = np.round(hmRPYG(0, 0, -90 * a.pose.heading.value, np.array([0,0,0])).dot(np.array([dxdy[0], dxdy[1], 0, 1]))[:2])
                                     mapGridLoc = np.vstack((mapGridLoc, [(a.pose.x + dxdy[0], a.pose.y + dxdy[1]), np.array([blockPose[0], blockPose[1], blockPose[2], cellPose[0], cellPose[1], cellPose[2]])]))
+                            # monitor structural stability with placement error -------------------------------------------
+                            if wrld.struct[a.pose] == 1: # at the first layer.
+                                logTPinsSecured.append(4)
+                                logAreaOverlapPercentage.append(1.0)
+                            elif wrld.struct[a.pose] > 1:
+                                # find the two blocks beneath the current block. new block has not been linked to mapGridBlockIdx yet.
+                                proximalBlock = myBrickMap.map[blockQuery(mapGridBlockIdx, wrld.struct[a.pose] - 1, a.pose.x, a.pose.y)]
+                                distalBlock = myBrickMap.map[blockQuery(mapGridBlockIdx, wrld.struct[tempPose] - 1, tempPose.x, tempPose.y)]
+                                # check each T-pin, see if it is secure.
+                                numPinSecured = 0
+                                for pin in [(pinDX, pinDY), (pinDX, -pinDY), (-pinDX, -pinDY), (-pinDX, pinDY)]:
+                                    pin = hmRPYG(*blockPose[:3], blockPose[3:]).dot(np.array([pin[0], pin[1], 0, 1]))[:2]
+                                    numPinSecured += int(isTPinSecure(pin, proximalBlock[2:5], myBrickMap.brickVertices[:2, :4].T) or isTPinSecure(pin, distalBlock[2:5], myBrickMap.brickVertices[:2, :4].T))
+                                logTPinsSecured.append(numPinSecured)
+                                # check overlap area.
+                                overlapArea = 0
+                                globalVertices = hmRPYG(*blockPose[:3], blockPose[3:]).dot(myBrickMap.brickVertices[:, :4])[:2, :].T
+                                globalVerticesProximal = hmRPYG(*proximalBlock[:3], proximalBlock[3:]).dot(myBrickMap.brickVertices[:, :4])[:2, :].T
+                                globalVerticesDistal = hmRPYG(*distalBlock[:3], distalBlock[3:]).dot(myBrickMap.brickVertices[:, :4])[:2, :].T
+                                polygonCurrent = Polygon(globalVertices)
+                                polygonProximal = Polygon(globalVerticesProximal)
+                                polygonDistal = Polygon(globalVerticesDistal)
+                                interProximal = polygonCurrent.intersection(polygonProximal)
+                                interDistal = polygonCurrent.intersection(polygonDistal)
+                                if interProximal and interDistal:
+                                    overlapArea = (interProximal.area + interDistal.area) / (myBrickMap.brickLength * myBrickMap.brickWidth)
+                                logAreaOverlapPercentage.append(overlapArea)
+                            # ---------------------------------------------------------------------------------------------
+
                         else:
                             blockPose = np.zeros(6).astype('float')
                             blockPose[4] = 0.5 * (myRobots[i].bodyPose[4] - tempPose.x * 0.2)  # actual y
