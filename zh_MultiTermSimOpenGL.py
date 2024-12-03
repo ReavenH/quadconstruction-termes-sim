@@ -66,7 +66,7 @@ from pygame.locals import *
 from OpenGL.GL import *
 from OpenGL.GLU import *
 useOpenGL = True
-numAgents = 10
+numAgents = 3
 myBrickMap = brickMap(hmRPYG, None)
 # init a list of robot instances.
 myRobots = [robot(hmRPYG, None, poseTags, None) for i in range(numAgents)]
@@ -82,7 +82,7 @@ floorRegion = np.array([[-8.5, -8.5, -0.02],
 growth=[]
 s_size=0
 
-mode = 'custom10'  # choose between 'default' and 'custom' to select input files.
+mode = 'custom11'  # choose between 'default' and 'custom' to select input files.
 isCurve = False  # identify whether the structure is curved.
 
 # for error simulation -----------------------------------------
@@ -92,13 +92,21 @@ axEGen = np.random.normal  # random error generator.
 angularErrorMean = 0.0 # in degrees, default 2.86.
 angularErrorStd = 3.07 # in degrees, default 3.07.
 agEGen = np.random.normal  # random error generator.
+pinErrorMean = 0.0 # in meters
+pinErrorStd = 0.015 # in meters.
+pinEGen = np.random.normal
 
 logTPinsSecured = []
 logAreaOverlapPercentage = []
+logLayerNo = []
 
-pinDX = 0.15  # dx and dy of T-pins in the coordinate of block center.
-pinDY = 0.075
+pinDX = 0.175  # dx and dy of T-pins in the coordinate of block center.
+pinDY = 0.08
 from shapely.geometry import Polygon
+import pandas as pd
+tiltAngle = 20
+savePath = f"exp/"+str(tiltAngle)+"_useless_A_1.csv"
+import keyboard
 # --------------------------------------------------------------
 
 if __name__ == '__main__':
@@ -158,6 +166,11 @@ if __name__ == '__main__':
         with open('structures/zh_graph12LayerCurvedWall2.pkl', 'rb') as fh:
             plan=pickle.load(fh)
         isCurve = True
+    elif mode == 'custom11':
+        wrld.struct.read('structures/zh_12LayerCurvedWall.csv')
+        with open('structures/zh_graph12LayerCurvedWall_'+str(tiltAngle)+'deg.pkl', 'rb') as fh:
+            plan=pickle.load(fh)
+        isCurve = True
     numTotalCellsTBD = np.sum(wrld.struct.worldArray)
     
     # init OpenGL and pygame if needed.------------------------
@@ -179,13 +192,13 @@ if __name__ == '__main__':
 
         # glTranslatef(-0.5, -0.5, -1.7) # default.
         # glTranslatef(-1.5, -0.5, -1.7) # shift the camera to the right.
-        # glTranslatef(-2.5, -0.3, -2.74)
-        glTranslatef(-4.5, -0.55, -2.74)
+        glTranslatef(-3.5, -0.3, -3.74)
+        # glTranslatef(-4.5, -0.55, -2.74)
         # glTranslatef(-6.5, -0.3, -2.74)  # for large x-shapes.
         # glRotatef(-45, 1, 0, 0)  
         glRotatef(-75, 1, 0, 0) 
-        glRotatef(45, 0, 0, 1) 
-        glTranslatef(0.5, 0, 0)
+        glRotatef(35, 0, 0, 1) 
+        # glTranslatef(0.5, 0, 0)
 
         # get the current view angle.
         hmScene = hmRPYP(-45, 0, 0, np.array([-0.5, -0.5, -1.7])).dot(hmRPYP(0, 0, 45, np.array([0.5, 0, 0])))
@@ -321,10 +334,21 @@ if __name__ == '__main__':
                 renderTextOG(textToShow, (10, 80))
                 textToShow = "No. Blocks: " + str(s_size)
                 renderTextOG(textToShow, (10, 100))
-                textToShow = "No. Gridcells TBD: "+str(numTotalCellsTBD - np.sum(wrld.struct.worldArray))
+                progress = int(10000*np.sum(wrld.struct.worldArray)/numTotalCellsTBD)/100
+                textToShow = "No. Gridcells TBD: "+str(numTotalCellsTBD - np.sum(wrld.struct.worldArray))+" | ("+str(progress)+"%)"
                 renderTextOG(textToShow, (10, 120))
                 pygame.display.flip()
                 pygame.time.wait(4)  # default 5
+                if progress == 100:
+                    # save the stability data.
+                    df = pd.DataFrame({"Layer": logLayerNo,"TPinSecurity": logTPinsSecured, "overlapAreaPercentage": logAreaOverlapPercentage})
+                    df.to_csv(savePath, index=False)
+                    print(f"Experiment data saved as {savePath}")
+                    while True:
+                        if keyboard.is_pressed('q'):
+                            print("Press q to exit program.")
+                            break
+                    sys.exit(0)
             # --------------------------------------------------
             time.sleep(0.1)
 
@@ -397,16 +421,19 @@ if __name__ == '__main__':
                                     mapGridLoc = np.vstack((mapGridLoc, [(a.pose.x + dxdy[0], a.pose.y + dxdy[1]), np.array([blockPose[0], blockPose[1], blockPose[2], cellPose[0], cellPose[1], cellPose[2]])]))
                             # monitor structural stability with placement error -------------------------------------------
                             if wrld.struct[a.pose] == 1: # at the first layer.
+                                logLayerNo.append(wrld.struct[a.pose])
                                 logTPinsSecured.append(4)
                                 logAreaOverlapPercentage.append(1.0)
                             elif wrld.struct[a.pose] > 1:
+                                # store the layer number.
+                                logLayerNo.append(wrld.struct[a.pose])
                                 # find the two blocks beneath the current block. new block has not been linked to mapGridBlockIdx yet.
                                 proximalBlock = myBrickMap.map[blockQuery(mapGridBlockIdx, wrld.struct[a.pose] - 1, a.pose.x, a.pose.y)]
                                 distalBlock = myBrickMap.map[blockQuery(mapGridBlockIdx, wrld.struct[tempPose] - 1, tempPose.x, tempPose.y)]
                                 # check each T-pin, see if it is secure.
                                 numPinSecured = 0
                                 for pin in [(pinDX, pinDY), (pinDX, -pinDY), (-pinDX, -pinDY), (-pinDX, pinDY)]:
-                                    pin = hmRPYG(*blockPose[:3], blockPose[3:]).dot(np.array([pin[0], pin[1], 0, 1]))[:2]
+                                    pin = hmRPYG(*blockPose[:3], blockPose[3:]).dot(np.array([pin[0] + pinEGen(loc = pinErrorMean, scale = pinErrorStd), pin[1] + pinEGen(loc = pinErrorMean, scale = pinErrorStd), 0, 1]))[:2]
                                     numPinSecured += int(isTPinSecure(pin, proximalBlock[2:5], myBrickMap.brickVertices[:2, :4].T) or isTPinSecure(pin, distalBlock[2:5], myBrickMap.brickVertices[:2, :4].T))
                                 logTPinsSecured.append(numPinSecured)
                                 # check overlap area.

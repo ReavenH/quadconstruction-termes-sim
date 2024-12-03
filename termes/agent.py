@@ -324,8 +324,6 @@ class Agent:
             '''
             
             build = False
-            if self.pose.x == 13 and self.pose.y == 7:
-                print(f'Robot {self.ID} at the parent of branch {self.pose}.')
             if (observation.heights[0] < self.plan_graph.nodes[loc]['height']) and self.has_brick: # observation.heights is [ne,N,E,S,W] from local view               
                 build=True
                 print("entering check place.")
@@ -349,6 +347,7 @@ class Agent:
                     if self.plan_graph.out_degree(cnode) == 1:
                         # do not block the way forward. do not form a cliff when the blocks are not staggered
                         if ((observation.heights[1] == observation.heights[0] and (observation.heights[1] - observation.heights[-1]) >= 1)):
+                        # if (observation.heights[1] != observation.heights[0]):
                             if debug_print: print(f'Abort placing, case 5. indeg {self.plan_graph.in_degree((self.pose.x, self.pose.y))}, outdeg {self.plan_graph.in_degree((self.pose.x, self.pose.y))}')
                             build=False
                     elif self.plan_graph.out_degree(cnode) == 2:  # default 2.

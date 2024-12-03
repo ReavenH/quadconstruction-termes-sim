@@ -66,11 +66,11 @@ edges = [(nodes[i], nodes[i + 1]) for i in range(len(nodes) - 1)]
 
 # for edge in edges:
 for edge in edges[:4]:
-    G.add_edge(*edge, prob=1.0, tilt=0)  # 设置概率属性为 1
+    G.add_edge(*edge, prob=1.0, tilt=20)  # 设置概率属性为 1
 for edge in edges[4:10]:
-    G.add_edge(*edge, prob=1.0, tilt=-25)  # 设置概率属性为 1
+    G.add_edge(*edge, prob=1.0, tilt=20)  # 设置概率属性为 1
 for edge in edges[10:]:
-    G.add_edge(*edge, prob=1.0, tilt=25)  # 设置概率属性为 1
+    G.add_edge(*edge, prob=1.0, tilt=20)  # 设置概率属性为 1
 
 
 # 输出节点和边的信息
@@ -84,5 +84,5 @@ print(G.edges(data=True))
 os.makedirs("structures", exist_ok=True)
 
 # 将创建的DiGraph保存为pkl文件
-with open("structures/zh_graph12LayerCurvedWall2.pkl", "wb") as f:
+with open("structures/zh_graph12LayerCurvedWall_20deg.pkl", "wb") as f:
     pickle.dump(G, f, protocol=pickle.HIGHEST_PROTOCOL)
